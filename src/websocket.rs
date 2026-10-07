@@ -2,6 +2,7 @@ use crate::{
     config::{
         keys::OPTION_RELAY_SERVER, use_ws, Config, Socks5Server, RELAY_PORT, RENDEZVOUS_PORT,
     },
+    private_protocol,
     protobuf::Message,
     socket_client::split_host_port,
     sodiumoxide::crypto::secretbox::Key,
@@ -38,6 +39,7 @@ pub struct WsFramedStream {
     addr: SocketAddr,
     encrypt: Option<Encrypt>,
     send_timeout: u64,
+    raw: bool,
 }
 
 impl WsFramedStream {
@@ -205,6 +207,7 @@ impl WsFramedStream {
             stream,
             addr,
             encrypt: None,
+            raw: false,
             send_timeout: ms_timeout,
         };
 
@@ -214,6 +217,7 @@ impl WsFramedStream {
     #[inline]
     pub fn set_raw(&mut self) {
         self.encrypt = None;
+        self.raw = true;
     }
 
     /// Both bounds, not just the message one: `max_frame_size` refuses an oversized frame on its
@@ -238,6 +242,7 @@ impl WsFramedStream {
             stream: ws_stream,
             addr,
             encrypt: None,
+            raw: false,
             send_timeout: 0,
         })
     }
@@ -280,7 +285,7 @@ impl WsFramedStream {
 
     #[inline]
     pub async fn send_raw(&mut self, msg: Vec<u8>) -> ResultType<()> {
-        let mut msg = msg;
+        let mut msg = if self.raw { msg } else { private_protocol::encode(&msg) };
         if let Some(key) = self.encrypt.as_mut() {
             msg = key.enc(&msg);
         }
@@ -323,7 +328,7 @@ impl WsFramedStream {
                             return Some(Err(err));
                         }
                     }
-                    return Some(Ok(bytes));
+                    return Some(if self.raw { Ok(bytes) } else { private_protocol::decode(bytes) });
                 }
                 WsMessage::Text(text) => {
                     if self.is_secured() {
@@ -333,7 +338,7 @@ impl WsFramedStream {
                         )));
                     }
                     let bytes = BytesMut::from(text.as_bytes());
-                    return Some(Ok(bytes));
+                    return Some(if self.raw { Ok(bytes) } else { private_protocol::decode(bytes) });
                 }
                 WsMessage::Close(_) => {
                     return None;

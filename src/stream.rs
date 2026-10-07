@@ -1,6 +1,6 @@
-use crate::{bail, config, tcp, websocket, ResultType};
 #[cfg(feature = "webrtc")]
 use crate::webrtc;
+use crate::{bail, config, tcp, websocket, ResultType};
 use sodiumoxide::crypto::secretbox::Key;
 use std::net::SocketAddr;
 use tokio::net::TcpStream;
@@ -199,8 +199,19 @@ impl Stream {
         }
     }
 
-    /// Whether an established WebRTC transport reaches the peer over IPv6 (used to name the
-    /// transport in the UI). `None` for non-WebRTC transports and before ICE selects a pair —
+    /// Network protocol of the selected WebRTC ICE pair, for connection statistics.
+    #[inline]
+    pub async fn webrtc_transport_protocol(&self) -> Option<&'static str> {
+        match self {
+            #[cfg(feature = "webrtc")]
+            Stream::WebRTC(s) => s.transport_protocol().await,
+            #[allow(unreachable_patterns)]
+            _ => None,
+        }
+    }
+
+    /// Whether an established WebRTC transport reaches the peer over IPv6. `None` for
+    /// non-WebRTC transports and before ICE selects a pair —
     /// every other transport already carries the family in the label it was raced under.
     #[inline]
     pub async fn webrtc_remote_ipv6(&self) -> Option<bool> {

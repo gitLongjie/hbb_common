@@ -39,6 +39,10 @@ impl BytesCodec {
         self.raw = true;
     }
 
+    pub fn is_raw(&self) -> bool {
+        self.raw
+    }
+
     pub fn set_max_packet_length(&mut self, n: usize) {
         self.max_packet_length = n;
     }

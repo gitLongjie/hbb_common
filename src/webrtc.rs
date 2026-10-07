@@ -1088,6 +1088,19 @@ impl WebRTCStream {
         )
     }
 
+    /// Network protocol of the selected ICE pair, normalized for the connection statistics UI.
+    pub async fn transport_protocol(&self) -> Option<&'static str> {
+        let dtls = self.pc.sctp().transport();
+        let pair = dtls.ice_transport().get_selected_candidate_pair().await?;
+        let pair = pair.to_string();
+        let remote = pair.split(" <-> ").nth(1)?;
+        match remote.split_whitespace().nth(1)? {
+            "udp" => Some("UDP"),
+            "tcp" => Some("TCP"),
+            _ => None,
+        }
+    }
+
     /// Whether the nominated pair reaches the peer over IPv6 — `None` before one is selected.
     /// The remote side on purpose: it is the address the peer is actually reached at, which the
     /// rendezvous-observed address the session is otherwise identified by cannot report.
@@ -1196,7 +1209,7 @@ impl WebRTCStream {
 
     #[inline]
     pub fn set_raw(&mut self) {
-        // not-supported
+        // WebRTC data channels already carry message boundaries and raw protobuf bytes.
     }
 
     /// See `Stream::set_max_packet_length`. Clamped to `MAX_RECV_MESSAGE`: the send path checks

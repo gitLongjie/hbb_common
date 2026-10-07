@@ -16,6 +16,7 @@ use std::{
 pub use tokio;
 pub use tokio_util;
 pub mod proxy;
+pub mod private_protocol;
 pub mod socket_client;
 pub mod tcp;
 pub mod udp;
@@ -507,8 +508,20 @@ pub struct VersionCheckResponse {
 pub const VER_TYPE_RUSTDESK_CLIENT: &str = "rustdesk-client";
 pub const VER_TYPE_RUSTDESK_SERVER: &str = "rustdesk-server";
 
+pub fn is_official_host(value: &str) -> bool {
+    let parsed = url::Url::parse(value).ok().filter(|url| url.has_host())
+        .or_else(|| url::Url::parse(&format!("http://{value}")).ok());
+    parsed.and_then(|url| url.host_str().map(|host| {
+        let host = host.trim_end_matches('.');
+        host == "rustdesk.com" || host.ends_with(".rustdesk.com")
+    })).unwrap_or(false)
+}
+
 pub fn version_check_request(typ: String) -> (VersionCheckRequest, String) {
-    const URL: &str = "https://api.rustdesk.com/version/latest";
+    let url = std::env::var("RUSTDESK_VERSION_SERVER").unwrap_or_default();
+    if url.is_empty() || is_official_host(&url) {
+        return (VersionCheckRequest { typ, ..Default::default() }, String::new());
+    }
 
     use sysinfo::System;
     let system = System::new();
@@ -525,7 +538,7 @@ pub fn version_check_request(typ: String) -> (VersionCheckRequest, String) {
             device_id,
             typ,
         },
-        URL.to_string(),
+        url,
     )
 }
 
@@ -546,6 +559,16 @@ pub fn time_based_rand() -> u32 {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_official_host_boundary() {
+        for value in ["https://rustdesk.com", "https://API.RUSTDESK.COM./version/latest", "rs-ny.rustdesk.com:21116"] {
+            assert!(is_official_host(value));
+        }
+        for value in ["http://remote.brigecode.icu:21114", "https://rustdesk.com@selfhost.example", "https://rustdesk.com.selfhost.example"] {
+            assert!(!is_official_host(value));
+        }
+    }
 
     #[test]
     fn test_mangle() {

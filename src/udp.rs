@@ -1,4 +1,4 @@
-use crate::ResultType;
+use crate::{private_protocol, ResultType};
 use anyhow::{anyhow, Context};
 use bytes::{Bytes, BytesMut};
 use futures::{SinkExt, StreamExt};
@@ -96,7 +96,7 @@ impl FramedSocket {
         addr: impl IntoTargetAddr<'_>,
     ) -> ResultType<()> {
         let addr = addr.into_target_addr()?.to_owned();
-        let send_data = Bytes::from(msg.write_to_bytes()?);
+        let send_data = Bytes::from(private_protocol::encode(&msg.write_to_bytes()?));
         match self {
             Self::Direct(f) => {
                 if let TargetAddr::Ip(addr) = addr {
@@ -133,13 +133,17 @@ impl FramedSocket {
         match self {
             Self::Direct(f) => match f.next().await {
                 Some(Ok((data, addr))) => {
-                    Some(Ok((data, addr.into_target_addr().ok()?.to_owned())))
+                    let addr = addr.into_target_addr().ok()?.to_owned();
+                    Some(private_protocol::decode(data).map(|data| (data, addr)).map_err(Into::into))
                 }
                 Some(Err(e)) => Some(Err(anyhow!(e))),
                 None => None,
             },
             Self::ProxySocks(f) => match f.next().await {
-                Some(Ok((data, _))) => Some(Ok((data.data, data.dst_addr))),
+                Some(Ok((data, _))) => {
+                    let addr = data.dst_addr;
+                    Some(private_protocol::decode(data.data).map(|bytes| (bytes, addr)).map_err(Into::into))
+                },
                 Some(Err(e)) => Some(Err(anyhow!(e))),
                 None => None,
             },

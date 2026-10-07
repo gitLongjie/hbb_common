@@ -1,4 +1,4 @@
-use crate::{bail, bytes_codec::BytesCodec, ResultType, config::Socks5Server, proxy::Proxy};
+use crate::{bail, bytes_codec::BytesCodec, config::Socks5Server, private_protocol, proxy::Proxy, ResultType};
 use anyhow::Context as AnyhowCtx;
 use bytes::{BufMut, Bytes, BytesMut};
 use futures::{SinkExt, StreamExt};
@@ -191,7 +191,7 @@ impl FramedStream {
 
     #[inline]
     pub async fn send_raw(&mut self, msg: Vec<u8>) -> ResultType<()> {
-        let mut msg = msg;
+        let mut msg = if self.0.codec().is_raw() { msg } else { private_protocol::encode(&msg) };
         if let Some(key) = self.2.as_mut() {
             msg = key.enc(&msg);
         }
@@ -211,6 +211,14 @@ impl FramedStream {
 
     #[inline]
     pub async fn next(&mut self) -> Option<Result<BytesMut, Error>> {
+        let res = self.next_raw().await;
+        if self.0.codec().is_raw() {
+            return res;
+        }
+        res.map(|res| res.and_then(private_protocol::decode))
+    }
+
+    pub async fn next_raw(&mut self) -> Option<Result<BytesMut, Error>> {
         let mut res = self.0.next().await;
         if let Some(Ok(bytes)) = res.as_mut() {
             if let Some(key) = self.2.as_mut() {
@@ -446,6 +454,22 @@ mod tests {
         b.dec(&mut buf).unwrap();
         assert_eq!(&buf[..], msg);
         sealed
+    }
+
+    #[test]
+    fn private_protocol_header_is_inside_ciphertext() {
+        let key = secretbox::gen_key();
+        let mut encrypt = Encrypt::new(key.clone());
+        let wire = encrypt.enc(&crate::private_protocol::encode(b"protobuf"));
+        assert_ne!(&wire[..4], b"RDPX");
+
+        let mut decrypt = Encrypt::new(key);
+        let mut frame = BytesMut::from(&wire[..]);
+        decrypt.dec(&mut frame).unwrap();
+        assert_eq!(
+            crate::private_protocol::decode(frame).unwrap(),
+            BytesMut::from(&b"protobuf"[..])
+        );
     }
 
     #[test]

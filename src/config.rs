@@ -114,7 +114,7 @@ const CHARS: &[char] = &[
     'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
 ];
 
-pub const RENDEZVOUS_SERVERS: &[&str] = &["rs-ny.rustdesk.com"];
+pub const RENDEZVOUS_SERVERS: &[&str] = &["remote.brigecode.icu"];
 pub const RS_PUB_KEY: &str = "OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=";
 
 pub const RENDEZVOUS_PORT: i32 = 21116;
@@ -924,6 +924,9 @@ impl Config {
                 .next()
                 .unwrap_or_default();
         }
+        if rendezvous_server.is_empty() || crate::is_official_host(&rendezvous_server) {
+            return String::new();
+        }
         if !rendezvous_server.contains(':') {
             rendezvous_server = format!("{rendezvous_server}:{RENDEZVOUS_PORT}");
         }
@@ -933,21 +936,21 @@ impl Config {
     pub fn get_rendezvous_servers() -> Vec<String> {
         let s = EXE_RENDEZVOUS_SERVER.read().unwrap().clone();
         if !s.is_empty() {
-            return vec![s];
+            return if crate::is_official_host(&s) { vec![] } else { vec![s] };
         }
         let s = Self::get_option("custom-rendezvous-server");
         if !s.is_empty() {
-            return vec![s];
+            return if crate::is_official_host(&s) { vec![] } else { vec![s] };
         }
         let s = PROD_RENDEZVOUS_SERVER.read().unwrap().clone();
         if !s.is_empty() {
-            return vec![s];
+            return if crate::is_official_host(&s) { vec![] } else { vec![s] };
         }
         let serial_obsolute = CONFIG2.read().unwrap().serial > SERIAL;
         if serial_obsolute {
             let ss: Vec<String> = Self::get_option("rendezvous-servers")
                 .split(',')
-                .filter(|x| x.contains('.'))
+                .filter(|x| x.contains('.') && !crate::is_official_host(x))
                 .map(|x| x.to_owned())
                 .collect();
             if !ss.is_empty() {
@@ -2939,6 +2942,11 @@ impl Status {
 #[cfg(test)]
 mod tests {
     use super::{permanent_password::PERMANENT_PASSWORD_ENC_VERSION, *};
+
+    #[test]
+    fn bundled_rendezvous_server_is_available_without_custom_config() {
+        assert_eq!(RENDEZVOUS_SERVERS, &["remote.brigecode.icu"]);
+    }
 
     static CONFIG_STATE_TEST_LOCK: Mutex<()> = Mutex::new(());
 
