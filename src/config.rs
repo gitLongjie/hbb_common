@@ -114,7 +114,7 @@ const CHARS: &[char] = &[
     'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
 ];
 
-pub const RENDEZVOUS_SERVERS: &[&str] = &["remote.brigecode.icu"];
+pub const RENDEZVOUS_SERVERS: &[&str] = &["srs.rtc.testtool.online"];
 pub const RS_PUB_KEY: &str = "8OYx2AzLO8GNDcoXH4wUT99J1q7B0PmjHKg9yx0dV2c=";
 
 pub const RENDEZVOUS_PORT: i32 = 21116;
@@ -2945,7 +2945,7 @@ mod tests {
 
     #[test]
     fn bundled_rendezvous_server_is_available_without_custom_config() {
-        assert_eq!(RENDEZVOUS_SERVERS, &["remote.brigecode.icu"]);
+        assert_eq!(RENDEZVOUS_SERVERS, &["srs.rtc.testtool.online"]);
         let signed_handshake = base64::decode(
             "/USRZIur7iq6JNNThQGgE6gkVTNOrck6OqvKVvZmD8fQdrElsbDJTm38PUsoDuVvRklonWJx6zaQhKZEECADAs9a1upA9ZoT2dpjmgaQHzPRRFyoQrc0PJgMUrMM6fUz",
             base64::Variant::Original,

@@ -428,7 +428,7 @@ pub fn check_ws(endpoint: &str) -> String {
     };
     let protocol = if is_domain {
         let api_server = Config::get_option("api-server");
-        if api_server.starts_with("https") {
+        if api_server.starts_with("https") || endpoint_host == "srs.rtc.testtool.online" {
             "wss"
         } else {
             "ws"
@@ -482,6 +482,18 @@ mod tests {
         Config::set_option("custom-rendezvous-server".to_string(), "".to_string());
         Config::set_option("relay-server".to_string(), "".to_string());
         Config::set_option("api-server".to_string(), "".to_string());
+        assert_eq!(
+            check_ws("srs.rtc.testtool.online:21115"),
+            "wss://srs.rtc.testtool.online/ws/id"
+        );
+        assert_eq!(
+            check_ws("srs.rtc.testtool.online:21116"),
+            "wss://srs.rtc.testtool.online/ws/id"
+        );
+        assert_eq!(
+            check_ws("srs.rtc.testtool.online:21117"),
+            "wss://srs.rtc.testtool.online/ws/relay"
+        );
         assert_eq!(check_ws("127.0.0.1:21115"), "ws://127.0.0.1:21118");
         assert_eq!(check_ws("127.0.0.1:21116"), "ws://127.0.0.1:21118");
         assert_eq!(check_ws("127.0.0.1:21117"), "ws://127.0.0.1:21119");
