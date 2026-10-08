@@ -115,7 +115,7 @@ const CHARS: &[char] = &[
 ];
 
 pub const RENDEZVOUS_SERVERS: &[&str] = &["remote.brigecode.icu"];
-pub const RS_PUB_KEY: &str = "OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=";
+pub const RS_PUB_KEY: &str = "8OYx2AzLO8GNDcoXH4wUT99J1q7B0PmjHKg9yx0dV2c=";
 
 pub const RENDEZVOUS_PORT: i32 = 21116;
 pub const RELAY_PORT: i32 = 21117;
@@ -2946,6 +2946,16 @@ mod tests {
     #[test]
     fn bundled_rendezvous_server_is_available_without_custom_config() {
         assert_eq!(RENDEZVOUS_SERVERS, &["remote.brigecode.icu"]);
+        let signed_handshake = base64::decode(
+            "/USRZIur7iq6JNNThQGgE6gkVTNOrck6OqvKVvZmD8fQdrElsbDJTm38PUsoDuVvRklonWJx6zaQhKZEECADAs9a1upA9ZoT2dpjmgaQHzPRRFyoQrc0PJgMUrMM6fUz",
+            base64::Variant::Original,
+        )
+        .unwrap();
+        let pk = sign::PublicKey::from_slice(
+            &base64::decode(RS_PUB_KEY, base64::Variant::Original).unwrap(),
+        )
+        .unwrap();
+        assert!(sign::verify(&signed_handshake, &pk).is_ok());
     }
 
     static CONFIG_STATE_TEST_LOCK: Mutex<()> = Mutex::new(());
